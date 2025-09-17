@@ -9,17 +9,62 @@
 <body>
     <div class="game-wrapper">
         <canvas id="gameCanvas" width="800" height="400"></canvas>
-        <div id="ui">
-            <div id="score">Score: 0</div>
+        <!-- --- hud start --- -->
+        <div id="ui" class="hud">
+            <div id="score">Score: 0 m</div>
+            <div id="effects">Effects: None</div>
         </div>
-        <!-- バージョン表示用のテキスト -->
+        <!-- --- hud end --- -->
+        <!-- --- version start --- -->
         <div id="versionLabel"></div>
-        <!-- ゲームオーバー時だけ表示するパネル -->
-        <div id="gameOver" class="hidden">
-            <p>Game Over</p>
-            <!-- リトライ操作用のボタン -->
-            <button id="retryButton">Retry</button>
+        <!-- --- version end --- -->
+        <!-- --- hud message start --- -->
+        <div id="hudMessage" class="hidden"></div>
+        <!-- --- hud message end --- -->
+        <!-- --- title screen start --- -->
+        <div id="titleScreen" class="overlay">
+            <div class="panel">
+                <h1>Simple Bike Run</h1>
+                <p class="instructions">スペースキー / タップでジャンプ</p>
+                <button id="startButton" class="primary">Start</button>
+                <!-- --- leaderboard start --- -->
+                <div id="leaderboardSection">
+                    <div class="leaderboard-header">
+                        <h2>ランキング</h2>
+                        <button id="clearLeaderboardButton" class="ghost">Clear</button>
+                    </div>
+                    <table id="leaderboardTable">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>名前</th>
+                                <th>スコア</th>
+                                <th>日時</th>
+                            </tr>
+                        </thead>
+                        <tbody id="leaderboardBody">
+                            <tr><td colspan="4" class="empty">記録がありません</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <!-- --- leaderboard end --- -->
+            </div>
         </div>
+        <!-- --- title screen end --- -->
+        <!-- --- game over start --- -->
+        <div id="gameOver" class="hidden overlay">
+            <div class="panel">
+                <p class="title">Game Over</p>
+                <div class="score-info">Distance: <span id="finalScore">0</span> m</div>
+                <label class="name-label" for="playerNameInput">名前（空欄可）</label>
+                <input id="playerNameInput" type="text" maxlength="16" placeholder="PLAYER">
+                <div class="save-row">
+                    <button id="saveScoreButton" class="primary">Save Score</button>
+                    <button id="retryButton" class="primary">Retry</button>
+                </div>
+            </div>
+        </div>
+        <!-- --- game over end --- -->
     </div>
     <script src="script.js"></script>
 </body>
