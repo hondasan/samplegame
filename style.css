@@ -63,6 +63,15 @@ canvas {
     background: #7dd3fc;
 }
 
+/* 共通で使える非表示用クラス */
 .hidden {
+    display: none;
+}
+
+/*
+ * hidden クラスは #gameOver の display 指定より優先させたいので
+ * セレクターの優先度を合わせて上書きする
+ */
+#gameOver.hidden {
     display: none;
 }

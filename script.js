@@ -274,18 +274,21 @@ function gameLoop(timestamp) {
 function triggerGameOver() {
     if (isGameOver) return;
     isGameOver = true;
+    // hidden クラスを外してパネルとリトライボタンを表示する
     gameOverPanel.classList.remove('hidden');
 }
 
 // ゲーム開始時の初期化処理
 function resetGame() {
     isGameOver = false;
+    // 再挑戦時はボタンを隠し、入力状態もリセットする
     gameOverPanel.classList.add('hidden');
     worldOffset = 0;
     score = 0;
     player.y = canvas.height - 120 - player.height;
     player.vy = 0;
     player.onGround = true;
+    spacePressed = false;
     lastTime = null;
     resetTerrain();
     generateTerrain(canvas.width * 2);
@@ -315,6 +318,7 @@ function handleKeyUp(e) {
 document.addEventListener('keydown', handleKeyDown);
 document.addEventListener('keyup', handleKeyUp);
 
+// ゲームオーバー後にリトライすると、初期状態から再開できる
 retryButton.addEventListener('click', () => {
     resetGame();
 });
