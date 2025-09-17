@@ -4,6 +4,12 @@ const ctx = canvas.getContext('2d');
 const scoreLabel = document.getElementById('score');
 const gameOverPanel = document.getElementById('gameOver');
 const retryButton = document.getElementById('retryButton');
+const versionLabel = document.getElementById('versionLabel');
+
+const GAME_VERSION = 'v1.1.0'; // --- added for version display ---
+if (versionLabel) {
+    versionLabel.textContent = GAME_VERSION;
+}
 
 // プレイヤーとゲームの基本設定
 const player = {
@@ -27,6 +33,10 @@ let worldOffset = 0;
 let score = 0;
 let spacePressed = false;
 let isGameOver = false;
+
+// --- added for hazard management ---
+let hazards = [];
+let hazardTimer = 0;
 
 // 地形データを保持する配列
 let groundSegments = [];
@@ -100,6 +110,14 @@ function getGroundInfo(worldX) {
     return null;
 }
 
+function getGroundHeight(worldX) { // --- added for hazard placement ---
+    const info = getGroundInfo(worldX);
+    if (info && info.type === 'ground') {
+        return info.height;
+    }
+    return 0;
+}
+
 // プレイヤーの位置と速度を更新
 function updatePlayer(dt) {
     if (isGameOver) return;
@@ -153,12 +171,101 @@ function updateWorld(dt) {
     }
 }
 
+function spawnHazard(baseSpeed, difficultyProgress) { // --- added for hazard creation ---
+    const spawnType = Math.random() < 0.55 ? 'enemy' : 'fireball';
+    const spawnFromLeft = spawnType === 'fireball' && Math.random() < 0.35;
+    const hazard = {
+        type: spawnType,
+        width: 36,
+        height: 36,
+        direction: spawnFromLeft ? 1 : -1,
+        speed: baseSpeed + randRange(-20, 30)
+    };
+
+    if (spawnFromLeft) {
+        hazard.x = worldOffset - randRange(220, 360);
+        hazard.speed = Math.max(hazard.speed, worldSpeed + 60); // --- added for left spawn balance ---
+    } else {
+        hazard.x = worldOffset + canvas.width + randRange(120, 260);
+    }
+
+    if (spawnType === 'enemy') {
+        hazard.width = 42;
+        hazard.height = 42;
+        const groundHeight = getGroundHeight(hazard.x + hazard.width / 2);
+        const safeHeight = groundHeight > 0 ? groundHeight : 120;
+        hazard.y = canvas.height - safeHeight - hazard.height;
+    } else {
+        hazard.width = 30;
+        hazard.height = 30;
+        hazard.baseY = canvas.height - randRange(140, 240);
+        hazard.waveAmplitude = 20 + difficultyProgress * 18;
+        hazard.waveSpeed = 2 + difficultyProgress * 2.5;
+        hazard.phase = 0;
+        hazard.y = hazard.baseY;
+    }
+
+    hazards.push(hazard);
+}
+
+function rectanglesOverlap(a, b) { // --- added for hazard collision ---
+    return (
+        a.x < b.x + b.width &&
+        a.x + a.width > b.x &&
+        a.y < b.y + b.height &&
+        a.y + a.height > b.y
+    );
+}
+
+function updateHazards(dt) { // --- added for hazard updates ---
+    if (isGameOver) return;
+
+    const difficultyProgress = Math.min(1, worldOffset / 5000);
+    const intervalRange = 2.6 - difficultyProgress * 1.6;
+    const spawnInterval = Math.max(0.7, intervalRange);
+    const baseSpeed = 80 + difficultyProgress * 220;
+    const maxHazards = Math.min(4, 1 + Math.floor(difficultyProgress * 4));
+
+    hazardTimer -= dt;
+    if (hazardTimer <= 0 && hazards.length < maxHazards) {
+        spawnHazard(baseSpeed, difficultyProgress);
+        hazardTimer = spawnInterval + randRange(0.25, 0.9);
+    }
+
+    const playerRect = {
+        x: player.x + worldOffset,
+        y: player.y,
+        width: player.width,
+        height: player.height
+    };
+
+    hazards = hazards.filter((hazard) => {
+        if (hazard.type === 'fireball') {
+            hazard.phase += dt;
+            hazard.y = hazard.baseY + Math.sin(hazard.phase * hazard.waveSpeed) * hazard.waveAmplitude;
+        }
+
+        hazard.x += hazard.speed * hazard.direction * dt;
+
+        if (rectanglesOverlap(playerRect, hazard)) {
+            triggerGameOver();
+        }
+
+        const screenX = hazard.x - worldOffset;
+        if (screenX + hazard.width < -220 || screenX > canvas.width + 220) {
+            return false;
+        }
+        return true;
+    });
+}
+
 // キャンバス上の描画処理
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     drawBackground();
     drawTerrain();
+    drawHazards();
     drawPlayer();
     drawForeground();
 }
@@ -201,6 +308,40 @@ function drawTerrain() {
             ctx.beginPath();
             ctx.moveTo(screenX, groundY);
             ctx.lineTo(screenX + segment.width, groundY);
+            ctx.stroke();
+        }
+    }
+}
+
+function drawHazards() { // --- added for hazard rendering ---
+    for (const hazard of hazards) {
+        const screenX = hazard.x - worldOffset;
+        if (screenX + hazard.width < -200 || screenX > canvas.width + 200) {
+            continue;
+        }
+
+        if (hazard.type === 'enemy') {
+            ctx.fillStyle = '#ef233c';
+            ctx.fillRect(screenX, hazard.y, hazard.width, hazard.height);
+            ctx.fillStyle = '#ffd166';
+            ctx.fillRect(screenX + 6, hazard.y + 6, hazard.width - 12, hazard.height - 12);
+            ctx.fillStyle = '#1d3557';
+            ctx.fillRect(screenX + hazard.width * 0.2, hazard.y + hazard.height - 8, hazard.width * 0.6, 6);
+        } else {
+            const centerX = screenX + hazard.width / 2;
+            const centerY = hazard.y + hazard.height / 2;
+            const gradient = ctx.createRadialGradient(centerX, centerY, 4, centerX, centerY, hazard.width / 1.2);
+            gradient.addColorStop(0, '#ffe066');
+            gradient.addColorStop(0.5, '#ff922b');
+            gradient.addColorStop(1, '#d00000');
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, hazard.width / 2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, hazard.width / 2, 0, Math.PI * 2);
             ctx.stroke();
         }
     }
@@ -265,6 +406,7 @@ function gameLoop(timestamp) {
 
     updateWorld(dt);
     updatePlayer(dt);
+    updateHazards(dt);
     draw();
 
     requestAnimationFrame(gameLoop);
@@ -276,6 +418,7 @@ function triggerGameOver() {
     isGameOver = true;
     // hidden クラスを外してパネルとリトライボタンを表示する
     gameOverPanel.classList.remove('hidden');
+    retryButton.style.display = 'inline-block'; // --- added for retry visibility ---
 }
 
 // ゲーム開始時の初期化処理
@@ -283,6 +426,7 @@ function resetGame() {
     isGameOver = false;
     // 再挑戦時はボタンを隠し、入力状態もリセットする
     gameOverPanel.classList.add('hidden');
+    retryButton.style.display = 'none'; // --- added for retry visibility ---
     worldOffset = 0;
     score = 0;
     player.y = canvas.height - 120 - player.height;
@@ -290,21 +434,27 @@ function resetGame() {
     player.onGround = true;
     spacePressed = false;
     lastTime = null;
+    hazards = []; // --- added for hazard reset ---
+    hazardTimer = randRange(1.0, 1.8);
     resetTerrain();
     generateTerrain(canvas.width * 2);
     scoreLabel.textContent = 'Score: 0';
 }
 
 // 入力イベント
+function attemptJump() { // --- added for mobile/touch jump ---
+    if (player.onGround && !isGameOver) {
+        player.vy = jumpVelocity;
+        player.onGround = false;
+    }
+}
+
 function handleKeyDown(e) {
     if (e.code === 'Space') {
         e.preventDefault();
         if (!spacePressed) {
             spacePressed = true;
-            if (player.onGround && !isGameOver) {
-                player.vy = jumpVelocity;
-                player.onGround = false;
-            }
+            attemptJump();
         }
     }
 }
@@ -317,6 +467,11 @@ function handleKeyUp(e) {
 
 document.addEventListener('keydown', handleKeyDown);
 document.addEventListener('keyup', handleKeyUp);
+
+canvas.addEventListener('touchstart', (e) => { // --- added for touch support ---
+    e.preventDefault();
+    attemptJump();
+});
 
 // ゲームオーバー後にリトライすると、初期状態から再開できる
 retryButton.addEventListener('click', () => {
