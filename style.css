@@ -33,6 +33,21 @@ canvas {
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
 }
 
+#versionLabel {
+    position: absolute;
+    top: 16px;
+    left: 24px;
+    font-size: 14px;
+    font-weight: bold;
+    letter-spacing: 0.04em;
+    color: rgba(15, 23, 42, 0.85);
+    background: rgba(255, 255, 255, 0.7);
+    padding: 4px 8px;
+    border-radius: 8px;
+    text-shadow: none;
+    z-index: 6; /* --- added for version visibility --- */
+}
+
 #gameOver {
     position: absolute;
     inset: 0;
@@ -56,6 +71,10 @@ canvas {
     font-weight: bold;
     cursor: pointer;
     transition: transform 0.1s ease, background 0.2s ease;
+}
+
+#retryButton {
+    display: none; /* --- added for retry visibility --- */
 }
 
 #gameOver button:hover {
