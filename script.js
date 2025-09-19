@@ -15,7 +15,7 @@ const leaderboardBody = document.getElementById('leaderboardBody');
 const clearLeaderboardButton = document.getElementById('clearLeaderboardButton');
 const versionLabel = document.getElementById('versionLabel');
 
-const GAME_VERSION = 'v1.3.0'; // --- version display ---
+const GAME_VERSION = 'v1.4.1'; // --- bump version to v1.4.1 ---
 if (versionLabel) {
     versionLabel.textContent = GAME_VERSION;
 }
@@ -36,6 +36,7 @@ const baseSettings = { // --- base settings start ---
     maxMissiles: 40,
     messageDuration: 2.4
 };
+const DISTANCE_PER_PIXEL = 0.1; // --- convert scroll speed to meters (fix distance update) ---
 const effectCaps = {
     multiShot: 3,
     missileIntervalMin: 0.25,
@@ -55,6 +56,7 @@ const player = {
 
 let lastTime = null;
 let worldOffset = 0;
+let distance = 0; // --- track travelled meters (fix distance staying at 0) ---
 let currentWorldSpeed = baseSettings.baseWorldSpeed;
 let score = 0;
 let spacePressed = false;
@@ -479,8 +481,9 @@ function chooseItemDefinition() {
 function spawnItem() {
     const safeSegments = groundSegments.filter((segment) => {
         if (segment.type !== 'ground') return false;
-        const screenX = segment.start - worldOffset;
-        return screenX > 120 && screenX < canvas.width * 1.3;
+        const screenStart = segment.start - worldOffset;
+        const screenEnd = screenStart + segment.width;
+        return screenEnd > 120 && screenStart < canvas.width * 1.3; // --- widen spawn window so items actually appear ---
     });
     if (safeSegments.length === 0) return;
 
@@ -718,7 +721,9 @@ function updateWorld(dt) {
 
     currentWorldSpeed = computeWorldSpeed();
     worldOffset += currentWorldSpeed * dt;
-    score = Math.floor(worldOffset / 10);
+    distance += currentWorldSpeed * dt * DISTANCE_PER_PIXEL; // --- fix distance update (was stuck at 0) ---
+    distance = Math.max(0, distance);
+    score = Math.floor(distance);
     updateScoreDisplay();
 
     updateDifficulty();
@@ -931,6 +936,7 @@ let hasSavedScore = false;
 
 function prepareNewRun() {
     worldOffset = 0;
+    distance = 0; // --- reset tracked distance only when starting a new run ---
     spacePressed = false;
     score = 0;
     lastTime = null;
@@ -977,6 +983,7 @@ function triggerGameOver() {
     gameState = GameState.GAMEOVER;
     gameOverPanel.classList.remove('hidden');
     retryButton.style.display = 'inline-block';
+    score = Math.floor(distance); // --- lock in the travelled distance for results ---
     finalScoreLabel.textContent = score;
     hasSavedScore = false;
     if (saveScoreButton) {
@@ -1049,10 +1056,13 @@ if (saveScoreButton) {
     saveScoreButton.addEventListener('click', () => {
         if (gameState !== GameState.GAMEOVER || hasSavedScore) return;
         const name = (nameInput?.value || '').trim() || 'PLAYER';
+        const finalScoreValue = Math.floor(distance); // --- ensure saved score reflects actual distance ---
+        score = finalScoreValue;
+        finalScoreLabel.textContent = finalScoreValue;
         const entry = {
             id: generateId(),
             name,
-            score,
+            score: finalScoreValue,
             date: new Date().toISOString()
         };
         const success = leaderboard.addEntry(entry);
